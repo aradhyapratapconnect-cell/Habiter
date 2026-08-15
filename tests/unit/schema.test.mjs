@@ -1,0 +1,290 @@
+// Unit test for TICKET-003 — Core Database Schema.
+//
+// Applies electron/db/migrations/002_core_schema.sql to an in-memory sql.js
+// database and verifies the four acceptance criteria from the ticket:
+//   1. All five tables exist with correct columns/types after the migration.
+//   2. Foreign keys are enforced (bad habit_id / category_id are rejected).
+//   3. UNIQUE(habit_id, date) on checkins rejects duplicate check-ins.
+//   4. UNIQUE date on daily_logs rejects duplicate day entries.
+//
+// Runs with Node's built-in test runner (no extra dependencies):
+//   node --test tests/unit/schema.test.mjs
+
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import initSqlJs from 'sql.js';
+
+const MIGRATION_PATH = fileURLToPath(
+  new URL('../../electron/db/migrations/002_core_schema.sql', import.meta.url),
+);
+
+async function freshDatabase() {
+  const SQL = await initSqlJs();
+  const db = new SQL.Database();
+  // Foreign keys are OFF by default in SQLite — the real app enables this in
+  // electron/db/database.ts, so the test must too.
+  db.run('PRAGMA foreign_keys = ON');
+  db.exec(fs.readFileSync(MIGRATION_PATH, 'utf-8'));
+  return db;
+}
+
+/** Read the columns of a table: [{name, type, notnull, dflt_value, pk}, ...] */
+function tableInfo(db, table) {
+  const result = db.exec(`PRAGMA table_info(${table})`);
+  assert.ok(result.length > 0, `expected ${table} table to exist`);
+  return result[0].values.map((row) => ({
+    name: row[1],
+    type: String(row[2]).toUpperCase(),
+    notnull: row[3],
+    dfltValue: row[4],
+    pk: row[5],
+  }));
+}
+
+/** True if a table exists in sqlite_master. */
+function tableExists(db, table) {
+  const result = db.exec(
+    `SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?`,
+    [table],
+  );
+  return result.length > 0 && result[0].values.length > 0;
+}
+
+test('migration creates all five core tables', async () => {
+  const db = await freshDatabase();
+  for (const table of ['habits', 'categories', 'checkins', 'daily_logs', 'settings']) {
+    assert.ok(tableExists(db, table), `expected ${table} table to exist`);
+  }
+  db.close();
+});
+
+test('habits table has the correct columns and types', async () => {
+  const db = await freshDatabase();
+  const columns = tableInfo(db, 'habits');
+  const byName = Object.fromEntries(columns.map((c) => [c.name, c]));
+
+  assert.deepEqual(
+    Object.keys(byName).sort(),
+    [
+      'category_id', 'created_at', 'frequency_type', 'frequency_value', 'icon',
+      'id', 'is_archived', 'name', 'reminder_time', 'sort_order',
+    ].sort(),
+  );
+
+  // id is a TEXT primary key
+  assert.equal(byName.id.type, 'TEXT');
+  assert.equal(byName.id.pk, 1);
+
+  // required fields are NOT NULL
+  for (const name of ['name', 'frequency_type']) {
+    assert.equal(byName[name].notnull, 1, `${name} should be NOT NULL`);
+  }
+
+  // boolean is_archived defaults to false (0)
+  assert.equal(byName.is_archived.type, 'INTEGER');
+  assert.equal(byName.is_archived.dfltValue, '0');
+
+  db.close();
+});
+
+test('categories table has the correct columns and types', async () => {
+  const db = await freshDatabase();
+  const columns = tableInfo(db, 'categories');
+  const byName = Object.fromEntries(columns.map((c) => [c.name, c]));
+
+  assert.deepEqual(Object.keys(byName).sort(), ['color', 'created_at', 'id', 'name'].sort());
+  assert.equal(byName.id.type, 'TEXT');
+  assert.equal(byName.id.pk, 1);
+  assert.equal(byName.name.notnull, 1);
+
+  db.close();
+});
+
+test('checkins table has the correct columns, types, and unique constraint', async () => {
+  const db = await freshDatabase();
+  const columns = tableInfo(db, 'checkins');
+  const byName = Object.fromEntries(columns.map((c) => [c.name, c]));
+
+  assert.deepEqual(
+    Object.keys(byName).sort(),
+    ['date', 'habit_id', 'id', 'status', 'updated_at'].sort(),
+  );
+  assert.equal(byName.id.type, 'TEXT');
+  assert.equal(byName.id.pk, 1);
+  assert.equal(byName.habit_id.notnull, 1);
+  assert.equal(byName.status.notnull, 1);
+
+  // The UNIQUE(habit_id, date) constraint must exist in the schema
+  const indexes = db.exec(`PRAGMA index_list(checkins)`)[0].values.map((r) => ({
+    name: r[1],
+    unique: r[2],
+    origin: r[3],
+  }));
+  const uniqueIndex = indexes.find((i) => i.unique === 1);
+  assert.ok(uniqueIndex, 'checkins should have a unique index (from UNIQUE(habit_id, date))');
+
+  db.close();
+});
+
+test('daily_logs table has the correct columns, types, and unique date', async () => {
+  const db = await freshDatabase();
+  const columns = tableInfo(db, 'daily_logs');
+  const byName = Object.fromEntries(columns.map((c) => [c.name, c]));
+
+  assert.deepEqual(
+    Object.keys(byName).sort(),
+    ['date', 'id', 'mood', 'sleep_hours', 'updated_at'].sort(),
+  );
+  assert.equal(byName.id.type, 'TEXT');
+  assert.equal(byName.id.pk, 1);
+  assert.equal(byName.date.notnull, 1);
+  assert.equal(byName.sleep_hours.type, 'REAL');
+
+  // date has a UNIQUE constraint
+  const indexes = db.exec(`PRAGMA index_list(daily_logs)`)[0].values.map((r) => r[2]);
+  assert.ok(indexes.some((u) => u === 1), 'daily_logs.date should be unique');
+
+  db.close();
+});
+
+test('settings table has the correct columns', async () => {
+  const db = await freshDatabase();
+  const columns = tableInfo(db, 'settings');
+  const byName = Object.fromEntries(columns.map((c) => [c.name, c]));
+
+  assert.deepEqual(Object.keys(byName).sort(), ['key', 'value'].sort());
+  assert.equal(byName.key.type, 'TEXT');
+  assert.equal(byName.key.pk, 1);
+
+  db.close();
+});
+
+test('foreign keys are enforced: checkin with unknown habit_id is rejected', async () => {
+  const db = await freshDatabase();
+
+  // No habit exists yet, so this must fail the FK constraint
+  assert.throws(
+    () => db.run(
+      "INSERT INTO checkins (id, habit_id, date, status) VALUES ('c-1', 'no-such-habit', '2026-08-10', 'completed')",
+    ),
+    /FOREIGN KEY/,
+  );
+
+  // With a real habit it succeeds
+  db.run("INSERT INTO habits (id, name, frequency_type) VALUES ('h-1', 'Gym', 'daily')");
+  db.run(
+    "INSERT INTO checkins (id, habit_id, date, status) VALUES ('c-1', 'h-1', '2026-08-10', 'completed')",
+  );
+
+  db.close();
+});
+
+test('foreign keys are enforced: habit with unknown category_id is rejected', async () => {
+  const db = await freshDatabase();
+
+  assert.throws(
+    () => db.run(
+      "INSERT INTO habits (id, name, category_id, frequency_type) VALUES ('h-1', 'Gym', 'no-such-category', 'daily')",
+    ),
+    /FOREIGN KEY/,
+  );
+
+  // With a real category it succeeds
+  db.run("INSERT INTO categories (id, name, color) VALUES ('cat-1', 'Health', '#4ade80')");
+  db.run(
+    "INSERT INTO habits (id, name, category_id, frequency_type) VALUES ('h-1', 'Gym', 'cat-1', 'daily')",
+  );
+
+  db.close();
+});
+
+test('unique (habit_id, date): duplicate check-in for the same day is rejected', async () => {
+  const db = await freshDatabase();
+  db.run("INSERT INTO habits (id, name, frequency_type) VALUES ('h-1', 'Gym', 'daily')");
+  db.run(
+    "INSERT INTO checkins (id, habit_id, date, status) VALUES ('c-1', 'h-1', '2026-08-10', 'completed')",
+  );
+
+  assert.throws(
+    () => db.run(
+      "INSERT INTO checkins (id, habit_id, date, status) VALUES ('c-2', 'h-1', '2026-08-10', 'partial')",
+    ),
+    /UNIQUE/,
+  );
+
+  // A different day for the same habit is fine
+  db.run(
+    "INSERT INTO checkins (id, habit_id, date, status) VALUES ('c-2', 'h-1', '2026-08-11', 'partial')",
+  );
+
+  db.close();
+});
+
+test('unique (habit_id, date): two habits can each check in on the same day', async () => {
+  const db = await freshDatabase();
+  db.run("INSERT INTO habits (id, name, frequency_type) VALUES ('h-1', 'Gym', 'daily')");
+  db.run("INSERT INTO habits (id, name, frequency_type) VALUES ('h-2', 'Read', 'daily')");
+  db.run(
+    "INSERT INTO checkins (id, habit_id, date, status) VALUES ('c-1', 'h-1', '2026-08-10', 'completed')",
+  );
+  db.run(
+    "INSERT INTO checkins (id, habit_id, date, status) VALUES ('c-2', 'h-2', '2026-08-10', 'completed')",
+  );
+  db.close();
+});
+
+test('unique date: duplicate daily_logs row for the same day is rejected', async () => {
+  const db = await freshDatabase();
+  db.run(
+    "INSERT INTO daily_logs (id, date, mood, sleep_hours) VALUES ('d-1', '2026-08-10', 'good', 7.5)",
+  );
+
+  assert.throws(
+    () => db.run(
+      "INSERT INTO daily_logs (id, date, mood, sleep_hours) VALUES ('d-2', '2026-08-10', 'great', 8.0)",
+    ),
+    /UNIQUE/,
+  );
+
+  // A different date is fine
+  db.run(
+    "INSERT INTO daily_logs (id, date, mood, sleep_hours) VALUES ('d-2', '2026-08-11', 'great', 8.0)",
+  );
+
+  db.close();
+});
+
+test('CHECK constraints reject invalid enumerated values', async () => {
+  const db = await freshDatabase();
+  db.run("INSERT INTO habits (id, name, frequency_type) VALUES ('h-1', 'Gym', 'daily')");
+
+  assert.throws(
+    () => db.run(
+      "INSERT INTO checkins (id, habit_id, date, status) VALUES ('c-1', 'h-1', '2026-08-10', 'nope')",
+    ),
+    /CHECK/,
+  );
+  assert.throws(
+    () => db.run("INSERT INTO habits (id, name, frequency_type) VALUES ('h-2', 'Bad', 'weekly')"),
+    /CHECK/,
+  );
+
+  db.close();
+});
+
+test('deleting a category sets habits.category_id to NULL (habit history preserved)', async () => {
+  const db = await freshDatabase();
+  db.run("INSERT INTO categories (id, name, color) VALUES ('cat-1', 'Health', '#4ade80')");
+  db.run(
+    "INSERT INTO habits (id, name, category_id, frequency_type) VALUES ('h-1', 'Gym', 'cat-1', 'daily')",
+  );
+
+  db.run('DELETE FROM categories WHERE id = ?', ['cat-1']);
+
+  const result = db.exec('SELECT category_id FROM habits WHERE id = ?', ['h-1']);
+  assert.equal(result[0].values[0][0], null, 'category_id should be NULL after category deletion');
+
+  db.close();
+});
