@@ -45,7 +45,7 @@ mac:
         - x64
         - arm64
 dmg:
-  artifactName: ${name}-${version}.${ext}
+  artifactName: ${name}-${version}-${arch}.${ext}
 linux:
   icon: build/icons/png/512x512.png
   target:
