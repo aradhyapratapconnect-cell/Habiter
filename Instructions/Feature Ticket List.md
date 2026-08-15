@@ -331,5 +331,30 @@
 **Dependencies**	TICKET-025 (electron-builder packaging config), TICKET-028 (app identity/icon must be finalized so the pipeline packages the correct branding)
 **Priority**	Must-have (this is the mechanism that makes public distribution repeatable)
 
+
+###	TICKET-031	Add Missing Delete Option for Habits + Fully Remove the Category Feature
+**Description**	Two changes bundled together since they both touch the habit management UI:
+
+Part A — Delete option missing: There is currently no way for a user to permanently delete a habit from the app. TICKET-006 specified a permanent-delete action with a confirmation step (separate from archive), but it's either missing or not reachable in the current build. This must be added to the habit list/management view: an explicit "Delete" action per habit, requiring confirmation before it permanently removes the habit and all its associated check-in history.
+
+Part B — Remove categories completely: The category feature (originally built in TICKET-007) is no longer wanted. Remove it entirely: the category picker from the add/edit habit form, the category management screen, category color tags shown next to habit names in the grid, and the categories table plus the category_id column on habits. This is a full removal, not a hide-and-keep-in-schema — the goal is a simpler habit list with no grouping concept at all.
+**Acceptance Criteria**	
+Part A:
+1. Each habit in the management/list view has a clearly visible "Delete" action.
+2. Clicking Delete shows a confirmation dialog warning that this permanently removes the habit and its full check-in history.
+3. Confirming delete removes the habit row and cascades to delete all associated checkins rows for that habit.
+4. Canceling the confirmation leaves the habit and its data untouched.
+5. An "Archive" option (hide from active grid, keep history) remains available as a separate, non-destructive alternative to Delete, per the original TICKET-006 behavior.
+
+Part B:
+6. The category field is removed from the add/edit habit form — habits no longer have a category selector.
+7. The categories management screen/UI is removed entirely.
+8. Category color tags no longer appear anywhere in the check-in grid or habit list.
+9. A database migration drops the categories table and removes the category_id column from habits (do not just stop using it — actually remove it from the schema).
+10. Existing users upgrading from a version with category data do not see errors or crashes; the migration cleanly handles existing rows that had a category_id set.
+11. All references to categories in the PRD, Technical Architecture Document, and Frontend Specification Document should be updated in a follow-up documentation pass to reflect this removal (flagged here, not required for code completion).
+**Dependencies**	TICKET-003 (schema), TICKET-006 (habit CRUD/delete), TICKET-007 (categories — being reversed by this ticket)
+**Priority**	Must-have
+
 ## Explicitly Out of Scope for This Ticket List (per PRD Section 8)
 No tickets exist for: user accounts/auth, cloud sync, social/sharing features, mobile apps, in-app purchases, analytics/telemetry, AI coaching, habit templates marketplace, light mode/theme switching, or multi-device sync. Do not create tickets for these without a PRD revision first.

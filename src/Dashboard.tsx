@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import CheckinGrid from './components/habit-grid/CheckinGrid';
+import HabitList from './components/habit-list/HabitList';
 import HabitFormModal from './components/habit-form/HabitFormModal';
 import ConfirmModal from './components/shared/ConfirmModal';
 import DailyLogWidget from './components/daily-log/DailyLogWidget';
@@ -137,14 +138,11 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Center: App title + tagline */}
+          {/* Center: App title */}
           <div className="text-center">
             <h1 className="text-display font-bold text-accent-primary">
               Habiter
             </h1>
-            <p className="text-body text-text-secondary">
-              Small steps today, brighter tomorrow.
-            </p>
           </div>
 
           {/* Right: Daily log widget — mood & sleep (TICKET-016) */}
@@ -271,6 +269,9 @@ export default function Dashboard() {
 
             {/* Check-in Grid (TICKET-008) */}
             <CheckinGrid seededIds={seededIds} />
+
+            {/* Habit management — add/edit/archive/delete (TICKET-006, TICKET-031 Part A) */}
+            <HabitList />
           </main>
 
           {/* ===== Left column (~220px) — sidebar charts =====

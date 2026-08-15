@@ -1,10 +1,10 @@
 import { create } from 'zustand';
 import type {
-  Category,
   Habit,
   HabitCreateInput,
   HabitUpdateInput,
 } from '../types';
+import { useCheckinsStore } from './checkinsStore';
 
 // ---------------------------------------------------------------------------
 // Safe API accessor — returns null when running outside Electron (browser dev)
@@ -16,17 +16,27 @@ function api() {
     : null;
 }
 
+/**
+ * Refresh the daily tracker grid after a habit mutation.
+ *
+ * The grid reads its own copy of habits from useCheckinsStore, which loads
+ * once on mount. Without this, a habit added/edited/deleted/archived in the
+ * My Habits list would not show up in the grid until the app restarted.
+ * Re-loading also recomputes streaks and stats so everything stays live.
+ */
+function refreshGridHabits() {
+  useCheckinsStore.getState().loadHabits();
+}
+
 // ---------------------------------------------------------------------------
 // Habit CRUD state
 // ---------------------------------------------------------------------------
 
 interface HabitsState {
   habits: Habit[];
-  categories: Category[];
   loading: boolean;
 
   loadHabits: () => Promise<void>;
-  loadCategories: () => Promise<void>;
   createHabit: (input: HabitCreateInput) => Promise<Habit>;
   updateHabit: (id: string, changes: HabitUpdateInput) => Promise<void>;
   archiveHabit: (id: string) => Promise<void>;
@@ -36,7 +46,6 @@ interface HabitsState {
 
 export const useHabitsStore = create<HabitsState>((set, _get) => ({
   habits: [],
-  categories: [],
   loading: false,
 
   loadHabits: async () => {
@@ -53,22 +62,12 @@ export const useHabitsStore = create<HabitsState>((set, _get) => ({
     }
   },
 
-  loadCategories: async () => {
-    const a = api();
-    if (!a) return;
-    try {
-      const categories = await a.categories.list();
-      set({ categories });
-    } catch (err) {
-      console.error('[habitsStore] Failed to load categories:', err);
-    }
-  },
-
   createHabit: async (input) => {
     const a = api();
     if (!a) throw new Error('API not available');
     const habit = await a.habits.create(input);
     set((s) => ({ habits: [...s.habits, habit] }));
+    refreshGridHabits();
     return habit;
   },
 
@@ -79,6 +78,7 @@ export const useHabitsStore = create<HabitsState>((set, _get) => ({
     set((s) => ({
       habits: s.habits.map((h) => (h.id === id ? updated : h)),
     }));
+    refreshGridHabits();
   },
 
   archiveHabit: async (id) => {
@@ -90,6 +90,7 @@ export const useHabitsStore = create<HabitsState>((set, _get) => ({
         h.id === id ? { ...h, is_archived: 1 } : h,
       ),
     }));
+    refreshGridHabits();
   },
 
   unarchiveHabit: async (id) => {
@@ -101,6 +102,7 @@ export const useHabitsStore = create<HabitsState>((set, _get) => ({
         h.id === id ? { ...h, is_archived: 0 } : h,
       ),
     }));
+    refreshGridHabits();
   },
 
   deleteHabit: async (id) => {
@@ -108,6 +110,7 @@ export const useHabitsStore = create<HabitsState>((set, _get) => ({
     if (!a) throw new Error('API not available');
     await a.habits.delete(id);
     set((s) => ({ habits: s.habits.filter((h) => h.id !== id) }));
+    refreshGridHabits();
   },
 }));
 

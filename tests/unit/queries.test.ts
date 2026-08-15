@@ -20,13 +20,6 @@ import {
   updateHabit,
 } from '../../electron/db/queries/habits.js';
 import {
-  createCategory,
-  deleteCategory,
-  getCategory,
-  listCategories,
-  updateCategory,
-} from '../../electron/db/queries/categories.js';
-import {
   deleteCheckin,
   getCheckin,
   listCheckins,
@@ -54,7 +47,7 @@ async function createFreshDatabase(): Promise<Database> {
   const database = new SQL.Database();
   // Foreign keys are OFF by default in SQLite — enable them like the app does.
   database.run('PRAGMA foreign_keys = ON');
-  for (const file of ['001_init.sql', '002_core_schema.sql']) {
+  for (const file of ['001_init.sql', '002_core_schema.sql', '003_lock_dates.sql', '004_remove_categories.sql']) {
     database.exec(fs.readFileSync(path.join(MIGRATIONS_DIR, file), 'utf-8'));
   }
   return database;
@@ -91,17 +84,14 @@ describe('habits CRUD', () => {
     expect(getHabit(db, habit.id)).toEqual(habit);
   });
 
-  it('stores optional fields (category, reminder, icon)', () => {
-    const category = createCategory(db, { name: 'Health', color: '#4ade80' });
+  it('stores optional fields (icon, reminder)', () => {
     const habit = createHabit(db, {
       name: 'Meditate',
       frequency_type: 'daily',
-      category_id: category.id,
       icon: '🧘',
       reminder_time: '07:00',
     });
 
-    expect(habit.category_id).toBe(category.id);
     expect(habit.icon).toBe('🧘');
     expect(habit.reminder_time).toBe('07:00');
   });
@@ -146,40 +136,6 @@ describe('habits CRUD', () => {
 
     expect(getHabit(db, habit.id)).toBeNull();
     expect(getCheckin(db, habit.id, '2026-08-10')).toBeNull();
-  });
-});
-
-describe('categories CRUD', () => {
-  it('creates, lists, and gets categories', () => {
-    const category = createCategory(db, { name: 'Health', color: '#4ade80' });
-
-    expect(category.id).toBeTypeOf('string');
-    expect(category.name).toBe('Health');
-    expect(listCategories(db)).toHaveLength(1);
-    expect(getCategory(db, category.id)).toEqual(category);
-    expect(getCategory(db, 'missing')).toBeNull();
-  });
-
-  it('updates a category', () => {
-    const category = createCategory(db, { name: 'Health', color: '#4ade80' });
-    const updated = updateCategory(db, category.id, { color: '#22c55e' });
-
-    expect(updated.name).toBe('Health');
-    expect(updated.color).toBe('#22c55e');
-  });
-
-  it('deleting a category leaves its habits uncategorized (FK SET NULL)', () => {
-    const category = createCategory(db, { name: 'Health', color: '#4ade80' });
-    const habit = createHabit(db, {
-      name: 'Gym',
-      frequency_type: 'daily',
-      category_id: category.id,
-    });
-
-    deleteCategory(db, category.id);
-
-    expect(getCategory(db, category.id)).toBeNull();
-    expect(getHabit(db, habit.id)?.category_id).toBeNull();
   });
 });
 

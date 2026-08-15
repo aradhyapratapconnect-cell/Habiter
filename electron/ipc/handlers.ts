@@ -14,7 +14,6 @@ import { ipcMain, dialog, BrowserWindow } from 'electron';
 import fs from 'node:fs';
 import { getDatabase, saveDatabase } from '../db/database.js';
 import * as habits from '../db/queries/habits.js';
-import * as categories from '../db/queries/categories.js';
 import * as checkins from '../db/queries/checkins.js';
 import * as dailyLogs from '../db/queries/dailyLogs.js';
 import * as settings from '../db/queries/settings.js';
@@ -24,8 +23,6 @@ import {
   assertId,
   assertSettingKey,
   assertSettingValue,
-  validateCategoryCreate,
-  validateCategoryUpdate,
   validateDailyLogInput,
   validateHabitCreate,
   validateHabitUpdate,
@@ -110,27 +107,6 @@ export function registerIpcHandlers(): void {
     saveDatabase();
     // Cancel any scheduled notification for this habit
     unscheduleHabit(id);
-  });
-
-  // --- categories ---------------------------------------------------------
-  ipcMain.handle('categories:create', (_event, input: unknown) => {
-    validateCategoryCreate(input);
-    const result = categories.createCategory(db(), input);
-    saveDatabase();
-    return result;
-  });
-  ipcMain.handle('categories:list', () => categories.listCategories(db()));
-  ipcMain.handle('categories:update', (_event, id: unknown, changes: unknown) => {
-    assertId(id);
-    validateCategoryUpdate(changes);
-    const result = categories.updateCategory(db(), id, changes);
-    saveDatabase();
-    return result;
-  });
-  ipcMain.handle('categories:delete', (_event, id: unknown) => {
-    assertId(id);
-    categories.deleteCategory(db(), id);
-    saveDatabase();
   });
 
   // --- checkins -----------------------------------------------------------
@@ -234,7 +210,6 @@ export function registerIpcHandlers(): void {
       version: 1,
       exportedAt: new Date().toISOString(),
       habits: habits.listHabits(db(), true),
-      categories: categories.listCategories(db()),
       checkins: checkins.listCheckins(db()),
       dailyLogs: dailyLogs.listDailyLogs(db()),
     };
@@ -255,20 +230,12 @@ export function registerIpcHandlers(): void {
 
     const lines: string[] = [];
 
-    // --- Categories ---
-    lines.push('--- Categories ---');
-    lines.push('id,name,color,created_at');
-    for (const c of categories.listCategories(db())) {
-      lines.push([c.id, csvEscape(c.name), csvEscape(c.color), c.created_at].join(','));
-    }
-    lines.push('');
-
     // --- Habits ---
     lines.push('--- Habits ---');
-    lines.push('id,name,icon,category_id,frequency_type,frequency_value,reminder_time,is_archived,sort_order,created_at');
+    lines.push('id,name,icon,frequency_type,frequency_value,reminder_time,is_archived,sort_order,created_at');
     for (const h of habits.listHabits(db(), true)) {
       lines.push([
-        h.id, csvEscape(h.name), csvEscape(h.icon), csvEscape(h.category_id),
+        h.id, csvEscape(h.name), csvEscape(h.icon),
         h.frequency_type, csvEscape(h.frequency_value), csvEscape(h.reminder_time),
         h.is_archived, h.sort_order, h.created_at,
       ].join(','));
@@ -331,9 +298,6 @@ export function registerIpcHandlers(): void {
     if (!Array.isArray(obj.habits)) {
       return { success: false, message: 'Invalid format — missing or invalid "habits" array.' };
     }
-    if (!Array.isArray(obj.categories)) {
-      return { success: false, message: 'Invalid format — missing or invalid "categories" array.' };
-    }
     if (!Array.isArray(obj.checkins)) {
       return { success: false, message: 'Invalid format — missing or invalid "checkins" array.' };
     }
@@ -347,16 +311,6 @@ export function registerIpcHandlers(): void {
     const validMoods = new Set(['great', 'good', 'neutral', 'bad', 'terrible']);
     const dateRe = /^\d{4}-\d{2}-\d{2}$/;
     const timeRe = /^([01]\d|2[0-3]):[0-5]\d$/;
-
-    for (const c of obj.categories as unknown[]) {
-      if (typeof c !== 'object' || c === null) {
-        return { success: false, message: 'Invalid category entry — must be an object.' };
-      }
-      const cat = c as Record<string, unknown>;
-      if (typeof cat.id !== 'string' || typeof cat.name !== 'string') {
-        return { success: false, message: `Invalid category: id and name must be strings.` };
-      }
-    }
 
     for (const h of obj.habits as unknown[]) {
       if (typeof h !== 'object' || h === null) {
@@ -372,14 +326,6 @@ export function registerIpcHandlers(): void {
       if (habit.reminder_time != null && habit.reminder_time !== '' &&
           (typeof habit.reminder_time !== 'string' || !timeRe.test(habit.reminder_time))) {
         return { success: false, message: `Invalid reminder_time format: "${habit.reminder_time}".` };
-      }
-    }
-
-    // Validate FK: habit.category_id → categories.id
-    const catIds = new Set((obj.categories as Record<string, unknown>[]).map((c) => c.id));
-    for (const h of obj.habits as Record<string, unknown>[]) {
-      if (h.category_id != null && h.category_id !== '' && !catIds.has(h.category_id)) {
-        return { success: false, message: `Habit "${h.name}" references unknown category_id: "${h.category_id}".` };
       }
     }
 
@@ -429,22 +375,13 @@ export function registerIpcHandlers(): void {
       d.run('DELETE FROM checkins');
       d.run('DELETE FROM habits');
       d.run('DELETE FROM daily_logs');
-      d.run('DELETE FROM categories');
-
-      // Restore categories
-      for (const c of obj.categories as Record<string, unknown>[]) {
-        d.run(
-          'INSERT INTO categories (id, name, color, created_at) VALUES (?, ?, ?, ?)',
-          [c.id, c.name, c.color ?? null, c.created_at ?? new Date().toISOString()] as (string | number | null)[],
-        );
-      }
 
       // Restore habits
       for (const h of obj.habits as Record<string, unknown>[]) {
         d.run(
-          `INSERT INTO habits (id, name, icon, category_id, frequency_type, frequency_value,
-           reminder_time, is_archived, sort_order, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [h.id, h.name, h.icon ?? null, h.category_id ?? null,
+          `INSERT INTO habits (id, name, icon, frequency_type, frequency_value,
+           reminder_time, is_archived, sort_order, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [h.id, h.name, h.icon ?? null,
            h.frequency_type, h.frequency_value ?? null, h.reminder_time ?? null,
            h.is_archived ?? 0, h.sort_order ?? 0, h.created_at ?? new Date().toISOString()] as (string | number | null)[],
         );
@@ -476,13 +413,12 @@ export function registerIpcHandlers(): void {
 
     saveDatabase();
     const counts = {
-      categories: (obj.categories as unknown[]).length,
       habits: (obj.habits as unknown[]).length,
       checkins: (obj.checkins as unknown[]).length,
       dailyLogs: (obj.dailyLogs as unknown[]).length,
     };
     console.log(`[Import] Restored: ${JSON.stringify(counts)}`);
-    return { success: true, message: `Import complete: ${counts.categories} categories, ${counts.habits} habits, ${counts.checkins} checkins, ${counts.dailyLogs} daily logs.` };
+    return { success: true, message: `Import complete: ${counts.habits} habits, ${counts.checkins} checkins, ${counts.dailyLogs} daily logs.` };
   });
 }
 

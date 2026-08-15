@@ -2,9 +2,9 @@
  * Seed example data on first launch (TICKET-026).
  *
  * When the habits table is empty (fresh install), inserts a small set of
- * example habits with categories so the user sees a populated dashboard
- * instead of a blank grid. The seeded habit IDs are persisted in the
- * settings table so the renderer can flag them with an "Example" badge.
+ * example habits so the user sees a populated dashboard instead of a blank
+ * grid. The seeded habit IDs are persisted in the settings table so the
+ * renderer can flag them with an "Example" badge.
  *
  * This runs once — subsequent launches skip seeding because the habits
  * table is no longer empty.
@@ -17,33 +17,19 @@ import type { Database } from 'sql.js';
 // Seed data
 // ---------------------------------------------------------------------------
 
-interface SeedCategory {
-  id: string;
-  name: string;
-  color: string;
-}
-
 interface SeedHabit {
   id: string;
   name: string;
   icon: string;
-  category_id: string | null;
   frequency_type: string;
   frequency_value: string | null;
 }
-
-const SEED_CATEGORIES: SeedCategory[] = [
-  { id: randomUUID(), name: 'Health', color: '#22C55E' },
-  { id: randomUUID(), name: 'Learning', color: '#60A5FA' },
-  { id: randomUUID(), name: 'Mindfulness', color: '#A78BFA' },
-];
 
 const SEED_HABITS: SeedHabit[] = [
   {
     id: randomUUID(),
     name: 'Wake up at 05:00',
     icon: '⏰',
-    category_id: null,
     frequency_type: 'daily',
     frequency_value: null,
   },
@@ -51,7 +37,6 @@ const SEED_HABITS: SeedHabit[] = [
     id: randomUUID(),
     name: 'Gym',
     icon: '🏋️',
-    category_id: SEED_CATEGORIES[0]!.id,
     frequency_type: 'times_per_week',
     frequency_value: '{"count":3}',
   },
@@ -59,7 +44,6 @@ const SEED_HABITS: SeedHabit[] = [
     id: randomUUID(),
     name: 'Reading / Learning',
     icon: '📖',
-    category_id: SEED_CATEGORIES[1]!.id,
     frequency_type: 'specific_days',
     frequency_value: '["mon","tue","wed","thu","fri"]',
   },
@@ -67,7 +51,6 @@ const SEED_HABITS: SeedHabit[] = [
     id: randomUUID(),
     name: 'Meditation',
     icon: '🧘',
-    category_id: SEED_CATEGORIES[2]!.id,
     frequency_type: 'daily',
     frequency_value: null,
   },
@@ -75,7 +58,6 @@ const SEED_HABITS: SeedHabit[] = [
     id: randomUUID(),
     name: 'Cold Shower',
     icon: '🚿',
-    category_id: SEED_CATEGORIES[0]!.id,
     frequency_type: 'daily',
     frequency_value: null,
   },
@@ -110,21 +92,12 @@ export function seedIfEmpty(db: Database): string[] {
 
   console.log('[Seed] Database is empty — seeding example data…');
 
-  // Insert seed categories
-  for (const cat of SEED_CATEGORIES) {
-    db.run(
-      'INSERT INTO categories (id, name, color) VALUES (?, ?, ?)',
-      [cat.id, cat.name, cat.color],
-    );
-  }
-  console.log(`[Seed] Inserted ${SEED_CATEGORIES.length} example categories.`);
-
   // Insert seed habits
   for (const habit of SEED_HABITS) {
     db.run(
-      `INSERT INTO habits (id, name, icon, category_id, frequency_type, frequency_value)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [habit.id, habit.name, habit.icon, habit.category_id, habit.frequency_type, habit.frequency_value],
+      `INSERT INTO habits (id, name, icon, frequency_type, frequency_value)
+       VALUES (?, ?, ?, ?, ?)`,
+      [habit.id, habit.name, habit.icon, habit.frequency_type, habit.frequency_value],
     );
   }
   console.log(`[Seed] Inserted ${SEED_HABITS.length} example habits.`);

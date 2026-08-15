@@ -17,12 +17,6 @@ const api: HabiterAPI = {
     update: (id, changes) => ipcRenderer.invoke('habits:update', id, changes),
     delete: (id) => ipcRenderer.invoke('habits:delete', id),
   },
-  categories: {
-    create: (input) => ipcRenderer.invoke('categories:create', input),
-    list: () => ipcRenderer.invoke('categories:list'),
-    update: (id, changes) => ipcRenderer.invoke('categories:update', id, changes),
-    delete: (id) => ipcRenderer.invoke('categories:delete', id),
-  },
   checkins: {
     set: (habitId, date, status) => ipcRenderer.invoke('checkins:set', habitId, date, status),
     get: (habitId, date) => ipcRenderer.invoke('checkins:get', habitId, date),

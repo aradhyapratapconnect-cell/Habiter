@@ -7,7 +7,7 @@ import type { Habit, HabitCreateInput, HabitUpdateInput } from '../../../src/typ
 import { queryAll, queryOne, execute } from './helpers.js';
 
 const COLUMNS =
-  'id, name, icon, category_id, frequency_type, frequency_value, reminder_time, is_archived, sort_order, created_at';
+  'id, name, icon, frequency_type, frequency_value, reminder_time, is_archived, sort_order, created_at';
 
 export function listHabits(db: Database, includeArchived = false): Habit[] {
   const sql = includeArchived
@@ -25,13 +25,12 @@ export function createHabit(db: Database, input: HabitCreateInput): Habit {
   const id = randomUUID();
   execute(
     db,
-    `INSERT INTO habits (id, name, icon, category_id, frequency_type, frequency_value, reminder_time, sort_order)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO habits (id, name, icon, frequency_type, frequency_value, reminder_time, sort_order)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       input.name,
       input.icon ?? null,
-      input.category_id ?? null,
       input.frequency_type,
       input.frequency_value ?? null,
       input.reminder_time ?? null,
@@ -46,7 +45,6 @@ export function createHabit(db: Database, input: HabitCreateInput): Habit {
 const UPDATABLE = [
   'name',
   'icon',
-  'category_id',
   'frequency_type',
   'frequency_value',
   'reminder_time',

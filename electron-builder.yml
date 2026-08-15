@@ -2,6 +2,10 @@ appId: com.habiter.app
 productName: Habiter
 directories:
   buildResources: build
+publish:
+  provider: github
+  owner: aradhyapratapconnect-cell
+  repo: Habiter
 files:
   - '!**/.vscode/*'
   - '!src/*'
@@ -32,8 +36,8 @@ mac:
   icon: build/icons/mac/icon.icns
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
-    - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
-    - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
+    NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
+    NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
   notarize: false
   target:
     - target: dmg

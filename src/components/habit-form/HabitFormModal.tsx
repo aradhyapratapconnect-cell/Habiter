@@ -42,7 +42,6 @@ const EMOJI_CATEGORIES: { label: string; emojis: string[] }[] = [
 interface HabitFormState {
   name: string;
   icon: string;
-  category_id: string;
   frequency_type: FrequencyType;
   frequency_value: string;
   reminder_time: string;
@@ -52,18 +51,16 @@ function emptyForm(): HabitFormState {
   return {
     name: '',
     icon: '',
-    category_id: '',
     frequency_type: 'daily',
     frequency_value: '',
     reminder_time: '',
   };
 }
 
-function habitToForm(habit: { name: string; icon: string | null; category_id: string | null; frequency_type: FrequencyType; frequency_value: string | null; reminder_time: string | null }): HabitFormState {
+function habitToForm(habit: { name: string; icon: string | null; frequency_type: FrequencyType; frequency_value: string | null; reminder_time: string | null }): HabitFormState {
   return {
     name: habit.name,
     icon: habit.icon ?? '',
-    category_id: habit.category_id ?? '',
     frequency_type: habit.frequency_type,
     frequency_value: habit.frequency_value ?? '',
     reminder_time: habit.reminder_time ?? '',
@@ -79,7 +76,6 @@ export default function HabitFormModal() {
   const mode = useHabitModalStore((s) => s.mode);
   const editingHabit = useHabitModalStore((s) => s.editingHabit);
   const close = useHabitModalStore((s) => s.close);
-  const categories = useHabitsStore((s) => s.categories);
   const createHabit = useHabitsStore((s) => s.createHabit);
   const updateHabit = useHabitsStore((s) => s.updateHabit);
 
@@ -177,7 +173,6 @@ export default function HabitFormModal() {
       const input: HabitCreateInput = {
         name: form.name.trim(),
         icon: form.icon || null,
-        category_id: form.category_id || null,
         frequency_type: form.frequency_type,
         frequency_value: form.frequency_value || null,
         reminder_time: form.reminder_time || null,
@@ -203,12 +198,6 @@ export default function HabitFormModal() {
       : mode === 'edit'
         ? 'Edit Habit'
         : 'Habit Details';
-
-  // Build category options for the Select component
-  const categoryOptions = categories.map((c) => ({
-    value: c.id,
-    label: c.name,
-  }));
 
   return (
     <Modal isOpen={isOpen} onClose={close} title={title} maxWidth="max-w-md">
@@ -294,15 +283,6 @@ export default function HabitFormModal() {
             )}
           </div>
         </div>
-
-        {/* Category */}
-        <Select
-          label="Category"
-          value={form.category_id}
-          onChange={(v) => set('category_id', v)}
-          options={categoryOptions}
-          placeholder="No category"
-        />
 
         {/* Frequency type */}
         <Select

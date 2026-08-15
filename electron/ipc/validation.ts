@@ -10,8 +10,6 @@
 // and uses an `asserts ... is ...` signature so handlers get narrowing for free.
 
 import type {
-  CategoryCreateInput,
-  CategoryUpdateInput,
   CheckinStatus,
   DailyLogInput,
   FrequencyType,
@@ -87,7 +85,6 @@ export function validateHabitCreate(input: unknown): asserts input is HabitCreat
   }
 
   assertOptionalString(obj.icon, 'icon', { allowNull: true });
-  assertOptionalString(obj.category_id, 'category_id', { allowNull: true });
   assertOptionalString(obj.frequency_value, 'frequency_value', { allowNull: true });
   assertOptionalString(obj.reminder_time, 'reminder_time', { allowNull: true, pattern: TIME_RE });
   assertOptionalNumber(obj.sort_order, 'sort_order', 0, Number.MAX_SAFE_INTEGER);
@@ -117,7 +114,6 @@ export function validateHabitUpdate(changes: unknown): asserts changes is HabitU
   }
 
   assertOptionalString(obj.icon, 'icon', { allowNull: true });
-  assertOptionalString(obj.category_id, 'category_id', { allowNull: true });
   assertOptionalString(obj.frequency_value, 'frequency_value', { allowNull: true });
   assertOptionalString(obj.reminder_time, 'reminder_time', { allowNull: true, pattern: TIME_RE });
   if (obj.is_archived !== undefined && obj.is_archived !== 0 && obj.is_archived !== 1) {
@@ -127,30 +123,6 @@ export function validateHabitUpdate(changes: unknown): asserts changes is HabitU
   if (obj.sort_order !== undefined && !Number.isInteger(obj.sort_order)) {
     throw new Error('sort_order must be an integer');
   }
-}
-
-export function validateCategoryCreate(input: unknown): asserts input is CategoryCreateInput {
-  if (typeof input !== 'object' || input === null) {
-    throw new Error('Category payload must be an object');
-  }
-  const obj = input as RecordInput;
-
-  if (typeof obj.name !== 'string' || obj.name.trim() === '') {
-    throw new Error('Category name is required');
-  }
-  assertOptionalString(obj.color, 'color', { allowNull: true });
-}
-
-export function validateCategoryUpdate(changes: unknown): asserts changes is CategoryUpdateInput {
-  if (typeof changes !== 'object' || changes === null) {
-    throw new Error('Category update payload must be an object');
-  }
-  const obj = changes as RecordInput;
-
-  if (obj.name !== undefined && (typeof obj.name !== 'string' || obj.name.trim() === '')) {
-    throw new Error('Category name must be a non-empty string');
-  }
-  assertOptionalString(obj.color, 'color', { allowNull: true });
 }
 
 export function validateDailyLogInput(input: unknown): asserts input is DailyLogInput {

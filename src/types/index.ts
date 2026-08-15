@@ -26,18 +26,10 @@ export type ISODate = string;
 // Entities (rows as stored in the database)
 // ---------------------------------------------------------------------------
 
-export interface Category {
-  id: string;
-  name: string;
-  color: string | null;
-  created_at: string;
-}
-
 export interface Habit {
   id: string;
   name: string;
   icon: string | null;
-  category_id: string | null;
   frequency_type: FrequencyType;
   frequency_value: string | null; // JSON, e.g. '["mon","wed","fri"]' or '{"count":3}'
   reminder_time: string | null; // local time "HH:MM"
@@ -75,7 +67,6 @@ export interface Setting {
 export interface HabitCreateInput {
   name: string;
   icon?: string | null;
-  category_id?: string | null;
   frequency_type: FrequencyType;
   frequency_value?: string | null;
   reminder_time?: string | null;
@@ -86,7 +77,6 @@ export interface HabitCreateInput {
 export interface HabitUpdateInput {
   name?: string;
   icon?: string | null;
-  category_id?: string | null;
   frequency_type?: FrequencyType;
   frequency_value?: string | null;
   reminder_time?: string | null;
@@ -97,16 +87,6 @@ export interface HabitUpdateInput {
 export interface HabitListOptions {
   /** Include archived habits in the result (default: false). */
   includeArchived?: boolean;
-}
-
-export interface CategoryCreateInput {
-  name: string;
-  color?: string | null;
-}
-
-export interface CategoryUpdateInput {
-  name?: string;
-  color?: string | null;
 }
 
 /** Optional filters for checkins.list(). `startDate`/`endDate` are inclusive. */
@@ -135,12 +115,6 @@ export interface HabiterAPI {
     get(id: string): Promise<Habit | null>;
     update(id: string, changes: HabitUpdateInput): Promise<Habit>;
     /** Permanently deletes the habit and (via FK cascade) its check-ins. */
-    delete(id: string): Promise<void>;
-  };
-  categories: {
-    create(input: CategoryCreateInput): Promise<Category>;
-    list(): Promise<Category[]>;
-    update(id: string, changes: CategoryUpdateInput): Promise<Category>;
     delete(id: string): Promise<void>;
   };
   checkins: {
