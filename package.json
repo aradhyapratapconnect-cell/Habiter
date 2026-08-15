@@ -1,6 +1,6 @@
 {
   "name": "Habiter",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A private, offline habit tracker that gives you a full year of your habits, streaks, mood, and sleep in one dashboard — with zero data ever leaving your machine.",
   "main": "dist-electron/main.js",
   "author": "",

@@ -2,14 +2,17 @@ appId: com.habiter.app
 productName: Habiter
 directories:
   buildResources: build
+  output: release
 publish:
   provider: github
   owner: aradhyapratapconnect-cell
   repo: Habiter
 files:
+  - '**/*'
   - '!**/.vscode/*'
   - '!src/*'
   - '!electron/*'
+  - 'electron/db/migrations/**'
   - '!{.eslintignore,.eslintrc.cjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
   - '!{tailwind.config.js,postcss.config.js}'
