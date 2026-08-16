@@ -1,6 +1,6 @@
 # Habiter
 
-**Small steps today, brighter tomorrow.**
+
 
 A private, offline habit tracker for your desktop. Track daily habits, build streaks, log your mood and sleep, and see your full month at a glance — with zero accounts, zero cloud, and zero data ever leaving your machine.
 
@@ -34,9 +34,9 @@ Grab the latest installer for your operating system from the [Releases page](htt
 
 | OS | File |
 |---|---|
-| Windows | `Habiter-1.0.0-setup.exe` |
-| macOS | `Habiter-1.0.0.dmg` |
-| Linux | `Habiter-1.0.0.AppImage` or `.deb` |
+| Windows | `Habiter-1.0.1-setup.exe` |
+| macOS | `Habiter-1.0.1.dmg` |
+| Linux | `Habiter-1.0.1.AppImage` or `.deb` |
 
 ### A note on installation warnings
 
