@@ -46,6 +46,8 @@ Habiter isn't code-signed yet, so your operating system may show a security warn
 - **macOS:** if Gatekeeper blocks the app, right-click the app in Finder and choose **"Open,"** then confirm **"Open"** in the dialog that appears.
 - **Linux (.AppImage):** you may need to mark the file as executable first: `chmod +x Habiter-*.AppImage`
 
+macOS and Linux builds compile successfully but haven't been manually tested on real hardware — please open an issue if you hit problems."
+
 ## Building from Source
 
 ```bash
